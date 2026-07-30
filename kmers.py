@@ -2,6 +2,13 @@ import os
 from collections import Counter
 from pathlib import Path
 from log import log
+from hash_utils import hashUse
+
+'''
+The k-mer algorithm extracts all possible subsequences of length k from a DNA sequence.
+Each k-mer represents a short fragment of the genome and can be used for sequence
+comparison, similarity analysis, and genome characterization.
+'''
 
 def checkFiles(path):
     filename1 = "allKmer_"+path.stem+".txt"
@@ -13,9 +20,11 @@ def checkFiles(path):
     if not any(path.iterdir()):
         return False
 
-    if filepath1.exists() and filepath1.is_file() and filepath2.exists() and filepath2.is_file():
-        return True
-    return False
+    if filepath1.exists() and filepath1.is_file() and filepath2.exists() and filepath2.is_file():           # check if files exist
+        if hashUse(filepath1, 1) and hashUse(filepath2, 1):                                                 # if yes (they do exist), check if they are corrupted.
+            return True                                                                                     # if files pass the check, return true (meaning files exist and the are ready for use)
+        
+    return False                                                                                            # Otherwise return false (meaning: files didn't exist or they are corrupted)
 
 
 
@@ -27,7 +36,6 @@ def checkExisting(path, folder):
             log("--Kmers algorithm terminated.--\n")
             print("Κ-mers files for", folder, "already exist")
             print("--Kmers algorithm terminated.--\n")
-            return True
         else:
             log("Couldn't locate the k-mers files for this genome. > Creating new ones.")
             print("Couldn't locate the k-mers files for this genome. > Creating new ones.")
@@ -81,7 +89,7 @@ def runKmers(inputseq, k):
                             #kmer = fulline[i:i+k]
                             #kmers.append(kmer)
                     prev = fulline[-(k-1):]  
-                    
+            hashUse(everykmer, 0)     #create sha256 file to secure authenticity
             log("K-mers file is ready.")
             #print(">> K-mers file is ready.")
             log(kmercounter, "k-mers of size", k , "have been found.")
@@ -121,7 +129,8 @@ def runKmers(inputseq, k):
             log("Κ-mers Frequency.txt is ready.")
             #print(">> Κ-mers Frequency.txt is ready.")
             
-            
+        hashUse(kmerfr, 0)  #create sha256 file to secure authenticity 
+        
     getKmers()
     countkmerfrequency()
     
