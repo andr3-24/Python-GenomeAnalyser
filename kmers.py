@@ -101,11 +101,14 @@ def runKmers(inputseq, k):
                 
                 
     def countkmerfrequency():
-        distinct = set()
+                #this function uses the everykmer document and creates a new file with all the k-mer frequencies of the given genome
+                
+        distinct = set() # Creates an empty set which is stored in the 'distinct' variable. Working with sets provides:
+                         # 1) Automatic removal of duplicate values
+                         # 2) A fast way to check whether an element exists in the set (using 'in')
+                         # 3) No requirement for maintaining element order
         
         with open(everykmer, "r") as inputfile, open(kmerfr, "w") as outfile:
-            #this function uses the everykmer document and creates a new file such as (4)
-            
             #1) get distinct values and place them in a data stracture
             #2) count the frequency of each kmer
             #3) create a new document containing the occurances of each distinct kmer, sorted in descending order. 

@@ -1,6 +1,6 @@
 from pathlib import Path
-from kmers import runKmers
-from log import log
+from kmersV2 import runKmers
+from log import *
 from GeneCompare import geneCompare
 from hash_utils import hashUse
 
@@ -43,12 +43,10 @@ gene3 = getFilePath("AnophelesOryzalimnetes.fna")
 
 def main():
     initLog()
-    runKmers(gene2, 3) #select gene and k 
+    runKmers(gene1, 8, True) #select gene, k, and the boolean parameter determining if the k-mers algorith is going to use the getKmers() function or not
     #geneCompare(gene1, gene2)
     
     
-    
-
     
     print("Programm Finished.")
 
