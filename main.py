@@ -4,11 +4,11 @@ from log import *
 from GeneCompare import geneCompare
 from hash_utils import hashUse
 from Stats import * 
+from fileManager import *
 
 
 
-#Get organisms folder
-organism_folder = BASE_DIR / "Organisms"
+
 
 def importFile():
     #User imports the .fna file in the program 
@@ -17,42 +17,27 @@ def importFile():
     #e.g example.fna : Organisms\example\example.fna
     pass
 
-#Locate the gene files
-def getFilePath(genename):
-    
-    #Each .fna file exist in its own directory. In the 'genefolder' we track the path for each .fna file 
-    #.stem -> cuts the file extension for each file
-    
-    genefolder = organism_folder / Path(genename).stem 
-    
-    #finally, the file_path variable holds the filename path
-    
-    file_path = genefolder / genename
 
-    if not file_path.exists():
-        raise FileNotFoundError(
-            f"{genename} was not found in {organism_folder}"
-        )
 
-    return file_path
-
-testGene = getFilePath("testgene.fna")
-gene1 = getFilePath("Ecoli.fna")
-gene2 = getFilePath("VespaMandarinia.fna")
-gene3 = getFilePath("AnophelesOryzalimnetes.fna")
-gene4 = getFilePath("HapalochlaenaMaculosa.fna")
+testGene = getOrganismDir("testgene.fna")
+gene1 = getOrganismDir("Ecoli.fna")
+gene2 = getOrganismDir("VespaMandarinia.fna")
+gene3 = getOrganismDir("AnophelesOryzalimnetes.fna")
+gene4 = getOrganismDir("HapalochlaenaMaculosa.fna")
 
 
 
 def main():
+    gene = testGene
+    
     initLog()
-    runKmers(testGene, 3, False, False) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used
-    #geneCompare(gene1, gene2)
-    #genome_len(gene1)
+    runKmers(gene, 3, True, True) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used 1: freq, 2: generateall
+    #geneCompare(gene, gene)
+    #genome_len(gene)
     
     
     
-    print("Programm Finished.")
+    print("\n>> Programm finished.\n")
 
 
 main()

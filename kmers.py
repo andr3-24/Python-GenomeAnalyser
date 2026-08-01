@@ -3,6 +3,7 @@ from collections import Counter
 from pathlib import Path
 from log import log
 from hash_utils import hashUse
+from fileManager import *
 
 
 '''
@@ -66,6 +67,9 @@ def countkmerfrequency(inputseq,k,kmerfr):
                 raise ValueError("Genome file is empty or smaller than given k.") # Raises an exception and stops execution if the input genome file is empty.
                 log("Genome file is empty or smaller than given k.")
             
+            # Stores the last (k-1) bases from the previous sequence line
+            prev = ""
+            
             with open(inputseq, "r") as inputfile:
 
                 for line in inputfile:
@@ -91,9 +95,6 @@ def countkmerfrequency(inputseq,k,kmerfr):
 
                     # Count ambiguous bases
                     ambiguous_bases += sequence.count("N")
-                    
-                    # Stores the last (k-1) bases from the previous sequence line
-                    prev = ""
                     
                     # Join the current line with the last (k-1) bases of the previous line
                     full_sequence = prev + sequence
@@ -139,14 +140,15 @@ def countkmerfrequency(inputseq,k,kmerfr):
 
             hashUse(kmerfr, 0)
 
-def runKmers(inputseq, k, useCountkmerfrequency, useGetKmers):
+def runKmers(inputseq, k, generate_frequency, generate_all_kmers):
     
-    if not useCountkmerfrequency and not useGetKmers:
+    if not generate_frequency and not generate_all_kmers:
         print("Can't perform k-mers algorithm. Please check the given parameters (Both are False).")
+        log("Both runKmers parameters are False, terminating.")
         return
     
-    print(">> Running K-mers for: ", inputseq, "\n")
-    log("--Kmers algorith started--")
+    print(">> Running K-mers for: ", inputseq.name, "\n")
+    log("--Kmers algorith started for", inputseq.name, "--") 
     
     #get bin
     BASE_DIR = Path(__file__).resolve().parents[1] 
@@ -158,70 +160,124 @@ def runKmers(inputseq, k, useCountkmerfrequency, useGetKmers):
     KmersDirName = KmersDir / inputseq.stem
     
     
-    #check if genome kmers folder already exists and if the files are valid
-    if checkExisting(KmersDirName,useCountkmerfrequency, useGetKmers):
-        return # files already exist and are valid. No need to run k-mers again    
+    '''
+    Depending on why the algorithm is called, the parameters `generate_frequency`
+    and `generate_all_kmers` determine which operations should be performed.
     
+    During the initial call (from `main`), these parameters contain the user's
+    requested actions. However, the algorithm checks which output files already
+    exist and automatically adjusts the boolean values.
+    
+    This prevents unnecessary recalculation and allows each file for each organism
+    to be processed only once, significantly improving the overall performance.
+    '''
+    
+    if generate_frequency and generate_all_kmers: #in case both parameters are true 
+        generate_frequency, generate_all_kmers = checkBothFiles(KmersDirName)  
+    else:       #in case one of two parameters is True
+        if checkExisting(KmersDirName,generate_frequency, generate_all_kmers):
+            return # files already exist and are valid. No need to run k-mers again 
+
     #files doesn't exist or they are corrupted -> k-mers will run again for the given genome. 
     genomeDir = KmersDir / inputseq.stem
     genomeDir.mkdir(parents=True, exist_ok=True)
     
-    
-    if useGetKmers:
-        everykmer = genomeDir / ("allKmer_"+inputseq.stem+".txt")
-        getKmers(inputseq,k,everykmer)
-        
-    if useCountkmerfrequency: 
+    if generate_frequency: 
+        print("Counting genome's k-mers frequency.")
+        log("Running generate_frequency")
         kmerfr = genomeDir / ("freqKmer_"+inputseq.stem+".txt")
         countkmerfrequency(inputseq,k,kmerfr)
-
-    filename = inputseq.name # .name is an attribute of the path class and it gets a path and returns only the filename without the path
     
-    log("Analysing", Path(filename).stem, " genome.:")
-    #print("Analysing ", Path(filename).stem, " genome.")
+    if generate_all_kmers:
+        print("Creating all-kmers file.")
+        log("Running generate_all_kmers")
+        everykmer = genomeDir / ("allKmer_"+inputseq.stem+".txt")
+        getKmers(inputseq,k,everykmer)
     
-    log("Analysing for ", Path(filename).stem , " is done. ")
+    print("\nK-mers finished.")
     log("--Kmers algorithm completed--\n")
-    
-    print("K-mers finished.")
-    #print("Analysing for ", Path(filename).stem , " is done. ")
 
-def checkExisting(KmersDirName, useCountkmerfrequency, useGetKmers):
-    if KmersDirName.exists() and KmersDirName.is_dir():                     #ckeck if the dir exist
-        if checkFiles(KmersDirName, useCountkmerfrequency, useGetKmers):    #if also the needed files already exist
-            log("Κ-mers files for", KmersDirName, "already exist")
+def checkExisting(KmersDirName, generate_frequency, generate_all_kmers):
+    if KmersDirName.exists() and KmersDirName.is_dir():                   #ckeck if the dir exist
+        if checkFiles(KmersDirName, generate_frequency, generate_all_kmers):  #ckeck if the corresponding files (dipending the boolean parameters) do exist
+            #if yes: 
+            log("Κ-mers files for", KmersDirName.name, "already exist")
             log("--Kmers algorithm terminated.--\n")
-            print("Κ-mers files for", KmersDirName, "already exist")
+            print("Κ-mers files for", KmersDirName.name, "already exist")
             print("--Kmers algorithm terminated.--\n")
+            return True
         else:
             log("Couldn't locate the k-mers files for this genome. > Creating new ones.")
             print("Couldn't locate the k-mers files for this genome. > Creating new ones.")
             return False
     else:
         return False
-
-def checkFiles(path, useCountkmerfrequency, useGetKmers):
+    
+    
+def checkBothFiles(path):
+    
+    '''
+    When both parameters are set to True, the program checks whether the required files already exist.
+    If one or both files are found, the corresponding boolean values are updated so that only the necessary
+    parts of the algorithm are executed.
+    '''
+    
+    needFreqKmer = False
+    needAllKmer = False
+    
+    if (path.exists() and path.is_dir()):  #ckeck if the dir exist
+    
+        if not any(path.iterdir()): # check if dir is empty. If yes, no need to continue, run the algorith anyway for both parameters. 
+            log("Couldn't locate the k-mers files for this genome. > Creating new ones.")
+            print("Couldn't locate the k-mers files for this genome. > Creating new ones.")
+            return True, True
+        
+        filename1 = "freqKmer_"+path.stem+".txt"
+        filepath1 = path / filename1
+    
+        filename2 = "allKmer_"+path.stem+".txt"
+        filepath2 = path / filename2
+        
+        if not (filepath1.exists() and filepath1.is_file() and hashUse(filepath1, 1)):
+            needFreqKmer = True
+            
+        if not (filepath2.exists() and filepath2.is_file() and hashUse(filepath2, 1)):
+            needAllKmer = True
+    else: 
+        log("Couldn't locate the k-mers files for this genome. > Creating new ones.")
+        print("Couldn't locate the k-mers files for this genome. > Creating new ones.")
+        needFreqKmer = needAllKmer = True
+    
+    if not needFreqKmer and not needAllKmer:
+        log("Κ-mers files for", path.stem, "already exist")
+        print("Κ-mers files for", path.stem, "already exist")
+        
+    return needFreqKmer, needAllKmer
+    
+def checkFiles(path, generate_frequency, generate_all_kmers):
     
     filename1 = "freqKmer_"+path.stem+".txt"
     filepath1 = path / filename1
-    
+
     filename2 = "allKmer_"+path.stem+".txt"
     filepath2 = path / filename2
- 
+
     if not any(path.iterdir()): # check if dir is empty. If yes, no need to continue, return false. 
         return False
     
-    if useCountkmerfrequency and not useGetKmers:
-        if filepath1.exists() and filepath1.is_file() and hashUse(filepath1, 1):
-            return True
+    if generate_frequency and not generate_all_kmers:
+        if filepath1.exists() and filepath1.is_file() and hashUse(filepath1, 1): # check if files exist. If yes (they do exist), check if they are corrupted (hashUse).
+            return True                                                          #if they exist and not corupted return True                                                      
         
-    if useGetKmers and not useCountkmerfrequency:
+    if generate_all_kmers and not generate_frequency:
         if filepath2.exists() and filepath2.is_file() and hashUse(filepath2, 1):
             return True
-            
-    if useCountkmerfrequency and useGetKmers:
-        if filepath1.exists() and filepath1.is_file() and filepath2.exists() and filepath2.is_file():    # check if files exist
-            if hashUse(filepath1, 1) and hashUse(filepath2, 1):                                          # if yes (they do exist), check if they are corrupted.
-                return True                                                                              # if files pass the check, return true (meaning files exist and the are ready for use)
-
-    return False                                                                           # Otherwise return false (meaning: files didn't exist or they are corrupted)
+        
+    return False                # Otherwise return false (meaning: files didn't exist or they are corrupted)
+    
+    
+    
+    
+    
+    
+    

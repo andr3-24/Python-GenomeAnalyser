@@ -1,5 +1,5 @@
 from pathlib import Path
-from kmersV2 import runKmers
+from kmers import runKmers
 from log import *
 from hash_utils import hashUse
 
