@@ -1,21 +1,8 @@
 from pathlib import Path
 from kmers import runKmers
-from log import *
 from GeneCompare import geneCompare
-from hash_utils import hashUse
-from Stats import * 
 from fileManager import *
 
-
-
-
-
-def importFile():
-    #User imports the .fna file in the program 
-    #Programm automatically creates the corresponding directory in the 'Organisms' folder
-    #The new directory name is filename - the file extension 
-    #e.g example.fna : Organisms\example\example.fna
-    pass
 
 
 
@@ -28,10 +15,13 @@ gene4 = getOrganismDir("HapalochlaenaMaculosa.fna")
 
 
 def main():
+    initLog()
+    
+    
     gene = testGene
     
-    initLog()
-    runKmers(gene, 3, True, True) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used 1: freq, 2: generateall
+
+    runKmers(testGene, 3, True, True) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used 1: freq, 2: generateall
     #geneCompare(gene, gene)
     #genome_len(gene)
     

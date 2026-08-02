@@ -4,9 +4,19 @@ from pathlib import Path
 from log import log
 from hash_utils import hashUse
 from fileManager import *
+import json
+from datetime import datetime
 
+version = "4.0"
 
 '''
+About this version: 
+In this version, metadata files are generated for the output files.
+Metadata have many practical uses, but in this implementation they are mainly
+used to compare existing files with the ones that are about to be generated.
+------------
+
+About k-mers algorithm:
 The k-mer algorithm extracts all possible subsequences of length k from a DNA sequence.
 Each k-mer represents a short fragment of the genome and can be used for sequence
 comparison, similarity analysis, and genome characterization.
@@ -30,7 +40,7 @@ def getKmers(inputseq,k,everykmer):
                     # It reads the DNA bases from index i to i+k-1, which is a significantly faster method.
                         #kmer = fulline[i:i+k]
                         #kmers.append(kmer)
-                prev = fulline[-(k-1):]  
+                prev = fulline[-(k - 1):] if k > 1 else "" 
         hashUse(everykmer, 0)     #create sha256 file to secure authenticity
         log("K-mers file is ready.")
         #print(">> K-mers file is ready.")
@@ -112,10 +122,7 @@ def countkmerfrequency(inputseq,k,kmerfr):
                         counts[kmer] += 1
                         
                         # Store the last (k-1) bases for the next iteration
-                    if len(full_sequence) >= k - 1:
-                        prev = full_sequence[-(k-1):]
-                    else:
-                        prev = full_sequence
+                    prev = full_sequence[-(k - 1):] if k > 1 else ""
 
             if not counts:
                 raise ValueError(
@@ -139,6 +146,7 @@ def countkmerfrequency(inputseq,k,kmerfr):
                 )
 
             hashUse(kmerfr, 0)
+            return ambiguous_bases
 
 def runKmers(inputseq, k, generate_frequency, generate_all_kmers):
     
@@ -147,18 +155,18 @@ def runKmers(inputseq, k, generate_frequency, generate_all_kmers):
         log("Both runKmers parameters are False, terminating.")
         return
     
+    log("Kmers version: ", version)
     print(">> Running K-mers for: ", inputseq.name, "\n")
     log("--Kmers algorith started for", inputseq.name, "--") 
     
     #get bin
     BASE_DIR = Path(__file__).resolve().parents[1] 
 
-    #Get Kmers folder
+    #Get Kmers folder path
     KmersDir = BASE_DIR / "Bin" / "Kmers" 
     
-    #Get Kmers folder name
+    #Get Kmers folder name path
     KmersDirName = KmersDir / inputseq.stem
-    
     
     '''
     Depending on why the algorithm is called, the parameters `generate_frequency`
@@ -172,13 +180,44 @@ def runKmers(inputseq, k, generate_frequency, generate_all_kmers):
     to be processed only once, significantly improving the overall performance.
     '''
     
-    if generate_frequency and generate_all_kmers: #in case both parameters are true 
-        generate_frequency, generate_all_kmers = checkBothFiles(KmersDirName)  
-    else:       #in case one of two parameters is True
-        if checkExisting(KmersDirName,generate_frequency, generate_all_kmers):
-            return # files already exist and are valid. No need to run k-mers again 
+    if generate_frequency and generate_all_kmers:    #in case both parameters are true 
+    
+        #read metadata for both parameters 
+        #if k in metadata files and given k arg agree, continue, else run kmers for new boolean values
+                                                                       
+        metaData = readMetadata(KmersDirName, "frequency")          #if given k is the same as metadata k  then proceed with the second file
+        
+        if metaData["output_type"] == "idle" or int(metaData["k"]) != k:
+            runKmers(inputseq, k, True, False)
 
-    #files doesn't exist or they are corrupted -> k-mers will run again for the given genome. 
+        metaData = readMetadata(KmersDirName, "allKmers")
+        
+        if metaData["output_type"] == "idle" or int(metaData["k"]) != k:
+            runKmers(inputseq, k, False, True)
+        
+        generate_frequency, generate_all_kmers = checkBothFiles(KmersDirName)
+        
+        if not generate_frequency and not generate_all_kmers:                           #if bothe boolean values turns out to be False then,
+            return                                                                      #the corresponding files already exist and are valid. No need to run k-mers again 
+    else:                                                                               #in case one of two parameters is True
+        #first check the metadata for each case
+        skipCheck = False
+        if generate_frequency and not generate_all_kmers: #True, False
+        
+            metaData = readMetadata(KmersDirName, "frequency")  
+            if metaData["output_type"] == "idle" or int(metaData["k"]) != k:
+                generate_frequency = skipCheck = True
+        else: #opposite case
+        
+            metaData = readMetadata(KmersDirName, "allKmers")
+            if metaData["output_type"] == "idle" or int(metaData["k"]) != k:
+                generate_all_kmers = skipCheck = True
+
+        if checkExisting(KmersDirName,generate_frequency, generate_all_kmers) and not skipCheck:
+            return                                                                      # files already exist and are valid. No need to run k-mers again 
+
+    #if files doesn't exist or they are corrupted -> k-mers will run again for the given genome.
+    
     genomeDir = KmersDir / inputseq.stem
     genomeDir.mkdir(parents=True, exist_ok=True)
     
@@ -187,18 +226,20 @@ def runKmers(inputseq, k, generate_frequency, generate_all_kmers):
         log("Running generate_frequency")
         kmerfr = genomeDir / ("freqKmer_"+inputseq.stem+".txt")
         countkmerfrequency(inputseq,k,kmerfr)
+        generateMetadata(KmersDirName, k, "frequency")
     
     if generate_all_kmers:
         print("Creating all-kmers file.")
         log("Running generate_all_kmers")
         everykmer = genomeDir / ("allKmer_"+inputseq.stem+".txt")
         getKmers(inputseq,k,everykmer)
-    
+        generateMetadata(KmersDirName, k, "allKmers")
+
     print("\nK-mers finished.")
     log("--Kmers algorithm completed--\n")
 
 def checkExisting(KmersDirName, generate_frequency, generate_all_kmers):
-    if KmersDirName.exists() and KmersDirName.is_dir():                   #ckeck if the dir exist
+    if KmersDirName.exists() and KmersDirName.is_dir():                       #ckeck if the dir exist
         if checkFiles(KmersDirName, generate_frequency, generate_all_kmers):  #ckeck if the corresponding files (dipending the boolean parameters) do exist
             #if yes: 
             log("Κ-mers files for", KmersDirName.name, "already exist")
@@ -221,9 +262,7 @@ def checkBothFiles(path):
     If one or both files are found, the corresponding boolean values are updated so that only the necessary
     parts of the algorithm are executed.
     '''
-    
-    needFreqKmer = False
-    needAllKmer = False
+    needFreqKmer = needAllKmer = False
     
     if (path.exists() and path.is_dir()):  #ckeck if the dir exist
     
@@ -275,9 +314,57 @@ def checkFiles(path, generate_frequency, generate_all_kmers):
         
     return False                # Otherwise return false (meaning: files didn't exist or they are corrupted)
     
+
+def generateMetadata(source_genome, k, output_type):
+    
+    """
+    Creates a metadata JSON file for generated k-mer files.
+
+    Metadata stores information about the generated file and
+    the parameters used during its creation.
+    """
+    
+    metaDataFile = source_genome.name+"_"+output_type+"_metaData.json"
+    metaDataFilePath = source_genome / metaDataFile
+    
+    metadata = {
+        "Version": version,
+        "source_genome": source_genome.name,
+        "output_file": metaDataFile,
+        "output_type": output_type,
+        "k": k,
+        "created_at": datetime.now().isoformat()
+    }
+    
+    if output_type != "idle": 
+        with open(metaDataFilePath, "w") as outfile:
+            json.dump(metadata, outfile, indent=4) # The indent parameter determines the number of spaces used for indentation
+                                                   # when formatting the JSON files
+        hashUse(metaDataFilePath, 0)               #create sha256 file to secure authenticity
+        
+    return metadata
+    
+def readMetadata(source_genome, output_type):
+    #if the corresponding metadata doesn't exist or sha fails return false
+    """
+    Reads a metadata JSON file and returns its contents as a dictionary.
+    """
+    
+    metaDataFile = source_genome.name+"_"+output_type+"_metaData.json"
+    metaDataFilePath = source_genome / metaDataFile 
     
     
+    #check if file exist and if it's valid
+    if metaDataFilePath.exists() and metaDataFilePath.is_file() and hashUse(metaDataFilePath, 1):
+        #metadata file exist and it's not corrupted
+        with open(metaDataFilePath, "r") as infile:
+            metadata = json.load(infile)
+            return metadata
+    else:
+        return generateMetadata(source_genome, 0, "idle")
+        
     
     
-    
+
+   
     
