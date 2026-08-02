@@ -21,12 +21,12 @@ def main():
     gene = testGene
     
 
-    runKmers(testGene, 3, True, True) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used 1: freq, 2: generateall
+    runKmers(testGene, 3, True, False) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used 1: freq, 2: generateall
     #geneCompare(gene, gene)
     #genome_len(gene)
     
     
-    
+     
     print("\n>> Programm finished.\n")
 
 
