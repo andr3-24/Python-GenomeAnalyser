@@ -3,9 +3,10 @@ from collections import Counter
 from pathlib import Path
 from log import log
 from hash_utils import hashUse
-from fileManager import *
 import json
 from datetime import datetime
+from progressBar import ProgressBar
+from Stats import genomeTotalLines
 
 version = "4.0"
 
@@ -14,6 +15,7 @@ About this version:
 In this version, metadata files are generated for the output files.
 Metadata have many practical uses, but in this implementation they are mainly
 used to compare existing files with the ones that are about to be generated.
+Also, progress bars have been added in order to track the analysis progress for larger genomes. 
 ------------
 
 About k-mers algorithm:
@@ -24,6 +26,11 @@ comparison, similarity analysis, and genome characterization.
 
 def getKmers(inputseq,k,everykmer): 
     log("-GetKmers started-")
+    
+    progress = ProgressBar(
+    total = genomeTotalLines(inputseq),
+    description="Exporting all k-mers if file: ")
+    
     kmercounter=0
     if ((os.path.getsize(inputseq) != 0) and (os.path.getsize(inputseq) >= k)): #If file is not empty, and if it is greater than k, proceed,
         prev = ""
@@ -42,6 +49,8 @@ def getKmers(inputseq,k,everykmer):
                         #kmer = fulline[i:i+k]
                         #kmers.append(kmer)
                 prev = fulline[-(k - 1):] if k > 1 else "" 
+                progress.update()
+                
         hashUse(everykmer, 0)     #create sha256 file to secure authenticity
     else:
         log("Error while trying to read the file.")
@@ -68,6 +77,12 @@ def countKmerFrequency(inputseq,k,kmerfr):
             ambiguous_bases = 0  # Counts the total number of ambiguous nucleotide symbols (e.g. 'N') found in the input genome.                   
             skipped_kmers = 0    # Counts the number of generated k-mers that were skipped because
                                  # they contain one or more ambiguous nucleotide symbols.
+
+                                              
+            progress = ProgressBar(
+            total = genomeTotalLines(inputseq),
+            description="Exporting k-mer frequencies: "
+            )
                                  
             # Check if file exists and is large enough
             if not os.path.exists(inputseq):
@@ -120,6 +135,7 @@ def countKmerFrequency(inputseq,k,kmerfr):
                         counts[kmer] += 1
             
                     prev = full_sequence[-(k - 1):] if k > 1 else "" # Store the last (k-1) bases for the next iteration
+                    progress.update()
 
             if not counts:
                 raise ValueError(
@@ -208,7 +224,7 @@ def runKmers(inputseq, k, generate_frequency, generate_all_kmers):
     else: #one of the two parameters is True and the other is False                                                                               #in case one of two parameters is True
         #first check the metadata for each case
         
-        skipCheck = False #this is a flag boolean variable that determines if there's need to run the check
+        skipCheck = False #this is a boolean flag variable that determines if there's need to run the check
         
         if generate_frequency and not generate_all_kmers: #True, False
         

@@ -2,6 +2,9 @@ from pathlib import Path
 from kmers import runKmers
 from GeneCompare import geneCompare
 from fileManager import *
+import time
+from progressBar import ProgressBar
+from Stats import * 
 
 
 
@@ -20,13 +23,11 @@ def main():
     
     gene = testGene
     
-
-    runKmers(testGene, 3, True, False) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used 1: freq, 2: generateall
+    runKmers(gene, 4, True, True) #select gene, k and the boolean parameters determining whitch k-mers algoriths are going to be used 1: freq, 2: generateall
     #geneCompare(gene, gene)
     #genome_len(gene)
     
-    
-     
+ 
     print("\n>> Programm finished.\n")
 
 
